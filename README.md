@@ -3,4 +3,5 @@ With Algorithmic Trading, we can automate the buying and selling of financial in
 
 
 The code is partly based on Dr. Param Jeet's and Prashan Vats' book 'Learning Quantitative Finance with R'.
+
 (In Progress)
