@@ -1,0 +1,325 @@
+---
+title: "Distance-Based Pairs Trading"
+author: "Dayanara M. Diaz Vargas"
+date: "3/13/2021"
+output: html_document
+---
+
+# Introduction
+
+Pairs trading, works by selecting stocks with positive correlation and using opposite trades in both of the stocks. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+
+
+# Step 1: Import datasets
+
+I like to analyze GOOGLE stock, so the analysis will circle around that. Additionally, a very similar company might be Amazon. They are both tech giants that are constantly innovating. So, we will analyze both of them for the sake of this project.
+
+
+Let's import **Google**.
+```{r 1, include=TRUE}
+# set working directory 
+  setwd("C:/Users/ddaya/OneDrive/Data Science Portfolio/Quantitative Finance/Algortihmic Trading")
+# import dataset
+library(quantmod)
+  getSymbols("GOOGL",src="yahoo") # confirm if this is the GOOGLE data
+    GOOGLE<- GOOGL[,"GOOGL.Close"] # choose the closing price of the stock
+      class(GOOGLE) # with this, we confirm that our class is "xts", and "zoo" means that GOOGLE
+        # stock is in time index format
+          GOOGLE<- GOOGLE[(index(GOOGLE) >= "2015-01-01" & index(GOOGLE) <= "2020-12-31"),] 
+                head(GOOGLE)
+```
+
+
+Let's import **Amazon**.
+```{r 2, include=TRUE}
+# import dataset
+library(quantmod)
+  getSymbols("AMZN",src="yahoo") # confirm if this is the Amazon data
+    AMAZON<- AMZN[,"AMZN.Close"] # choose the closing price of the stock
+      class(AMAZON) # with this, we confirm that our class is "xts", and "zoo" means that GOOGLE
+        # stock is in time index format
+          AMAZON<- AMAZON[(index(AMAZON) >= "2015-01-01" & index(AMAZON) <= "2020-12-31"),] 
+                head(AMAZON)
+```
+
+Let's evaluate our data further.
+```{r 3, include=TRUE}
+plot(GOOGLE)
+```
+
+
+```{r 4, include=TRUE}
+plot(AMAZON)
+```
+
+# Step 2: Generate the return of each stock
+
+To calculate the log difference, we apply this formula:  Lag = log(x2(t)/x1(t-k))
+
+**Note**:
+*log return* is better for our stock analysis, because it provides us a return that acknowledges the compounding effect. That is, for a stock growing from $100 to $105, this yields a log return of 4.88%. For small returns, arithmetic and logarithmic returns will be similar, but, as returns get further away from zero, these two formulations will produce increasingly different answers.If one is modeling the stock market, it is common to assume that returns are normally distributed. In this context, log returns are far superior to arithmetic returns since the sum of repeated samples from a normal distribution is normally distributed. However, the product of repeated samples from a normal distribution is not normally distributed.
+
+Thus, the compound return over n periods is merely the difference in log between initial and final periods.
+
+For GOOGLE:
+```{r 5, include=TRUE}
+log_ret_GOOGLE<- Delt(GOOGLE,k=1, type="log") # converts the raw closing prices to return and by default with 1 lag 
+head(log_ret_GOOGLE)
+
+```
+
+
+For AMAZON:
+```{r 6, include=TRUE}
+log_ret_AMAZON<- Delt(AMAZON,k=1, type="log") # converts the raw closing prices to return and by default with 1 lag 
+head(log_ret_AMAZON)
+
+```
+
+
+Let's see our return for each stock:
+```{r 7, include=TRUE}
+plot(log_ret_GOOGLE)
+```
+
+
+```{r 8, include=TRUE}
+plot(log_ret_AMAZON)
+```
+
+
+**Amazon** has more shocks (more peaks) per period than GOOGLE. As we can see, AMAZON is more volatile than **Google**. 
+
+# Step 3: Normalize time series
+
+Different time series might present different scaling. To fix any errors connected to this, we can normalize, standardize or log transform it. It turns out that these algorithms work best when all variables (features) are in the same scale. 
+
+**Here is a summary of the cases in which we should apply each one**:
+
++**Normalization** is good to use when you know that the distribution of your data does not follow a Gaussian distribution. This can be useful in algorithms that do not assume any distribution of the data like K-Nearest Neighbors and Neural Networks. It implies a linear transformation to place the range of the data within a given interval such as [0,1], without any consideration of how the data might be distributed within that interval. As a result, variance becomes 1, and the mean is zero. NOTICE: This operation does not make data normal or Gaussian. Rather, it is scaling/shifting. 
+
++**Standardization**, on the other hand, can be helpful in cases where the data follows a Gaussian distribution. However, this does not have to be necessarily true. Also, unlike normalization, standardization does not have a bounding range. So, even if you have outliers in your data, they will not be affected by standardization. It implies a linear transformation to center the distribution and make it of unit variance.
+
++**Log Transformation** can be used to make highly skewed distributions less skewed. This can be valuable both for making patterns in the data more interpretable and for helping to meet the assumptions of inferential statistics.
+
+
+
+I like the simplicity of normalizing a dataset. So, let's do that here by using an initial investment of $1, taking the cumulative return of this investment, and then observe the difference between each time-series.
+
+NOTE: formula for cumulative return ---> norm_GOOGLE_t = (norm_GOOGLE)_{t-1} * (1 + rt)
+
+```{r 9, include=TRUE}
+# initial investment 
+  log_ret_GOOGLE[1]<-1
+    log_ret_AMAZON[1]<-1
+      # Cummulative return
+        norm_GOOGLE<- apply(log_ret_GOOGLE+1,2,cumprod) 
+          norm_GOOGLE<-norm_GOOGLE-1
+        norm_AMAZON<- apply(log_ret_AMAZON+1,2,cumprod)
+          norm_AMAZON<-norm_AMAZON-1
+            options(digits=4)
+            # Graph
+           
+              plot(norm_GOOGLE,type="l",ylim=c(0,max(norm_AMAZON)) ,ylab="Normalized Price")
+                lines(norm_AMAZON,col="red")
+                legend('topleft',c("GOOGLE","AMAZON") , lty=1, col=c('black','red'),
+                       bty='o', cex=1)
+
+
+	
+```
+
+Conclusion: This pair doesn't converge frequently. In fact, it never converges. Thus, one should not consider using it for pairs trading. For this technique, we have to find a pair which diverges and converges frequently on historical data. Constant divergence and convergence implies some similarity in both stocks.
+
+
+## Explore other stocks
+### Yandex
+
+After reading some articles on the internet, I found out that YANDEX is a multinational company that not only behind the most popular search engine in Russia, but also provides over 70 Internet-related products and services, including transportation, search and information services, e-commerce, navigation, mobile applications, and online advertising. In short, it could be the Russian equivalent of Google.This is interesting, because it may be a stock worth using for pair trading along side Google.
+
+```{r 10, include=TRUE}
+# Let's import Yandex
+# import dataset
+library(quantmod)
+  getSymbols("YNDX",src="yahoo") # confirm if this is the Yandex data
+    YANDEX<- YNDX[,"YNDX.Close"] # choose the closing price of the stock
+      class(YANDEX) # with this, we confirm that our class is "xts", and "zoo" means that GOOGLE
+        # stock is in time index format
+          YANDEX<- YANDEX[(index(YANDEX) >= "2015-01-01" & index(YANDEX) <= "2020-12-31"),] 
+                # return
+                  log_ret_YANDEX<- Delt(YANDEX,k=1, type="log") # converts the raw closing prices to return and by default with 1 lag 
+                    log_ret_YANDEX[1]<-1
+                      # Cummulative return
+                         norm_YANDEX<- apply(log_ret_YANDEX+1,2,cumprod) 
+                            norm_YANDEX<-norm_YANDEX-1
+                              # Graph
+           
+                                plot(norm_GOOGLE,type="l",ylim=c(0,max(norm_GOOGLE)) ,ylab="Normalized Price")
+                                  lines(norm_YANDEX,col="red")
+                                    legend('topleft',c("GOOGLE","YANDEX") , lty=1, col=c('black','red'),
+                       bty='o', cex=1)
+                                
+                    
+```
+
+
+
+### Apple
+
+Apple Inc. is an American multinational technology company headquartered in Cupertino, California, that designs, develops, and sells consumer electronics, computer software, and online services. Since this is a multinational technology company, I suppose that its behavior could be similar to Google's. Therefore, it may be a stock worth using for pair trading along side Google.
+
+```{r 11, include=TRUE}
+# Let's import Apple
+# import dataset
+library(quantmod)
+  getSymbols("AAPL",src="yahoo") # confirm if this is the Apple data
+    Apple<- AAPL[,"AAPL.Close"] # choose the closing price of the stock
+      class(Apple) # with this, we confirm that our class is "xts", and "zoo" means that GOOGLE
+        # stock is in time index format
+          Apple<- Apple[(index(Apple) >= "2015-01-01" & index(Apple) <= "2020-12-31"),] 
+                # return
+                  log_ret_Apple<- Delt(Apple,k=1, type="log") # converts the raw closing prices to return and by default with 1 lag 
+                    log_ret_Apple[1]<-1
+                      # Cummulative return
+                         norm_Apple<- apply(log_ret_Apple+1,2,cumprod) 
+                            norm_Apple<-norm_Apple-1
+                            
+                              # Graph
+           
+                                plot(norm_GOOGLE,type="l",ylim=c(0,max(norm_Apple)) ,ylab="Normalized Price")
+                                  lines(norm_Apple,col="red")
+                                    legend('topleft',c("GOOGLE","Apple") , lty=1, col=c('black','red'),
+                       bty='o', cex=1)
+                                
+                    
+```
+
+If we compare Google between the Apple and the Yandex stocks, we can observe that Apple converges and diverges (with respect to Google) more frequently than Yandex. Therefore, it is safe to assume that Apple and Google have some similarity in their stocks' behavior.
+
+
+Let's see the upper (ub) and lower bounds (lb) of the difference series. To determine the value of n, one may estimate it through the trial-and-error method. For anyone who’s unfamiliar with the term, grid search involves running a model many times with combinations of various hyperparameters. The point is to identify which hyperparameters are likely to work best.
+
+
+For my model, I will choose 1. This implies the following:
+
++ buy signal (1) is observed when the difference in value is lower than the lower band
++ short signal (-1) is estimated when the difference is above the upper band
++ otherwise the signal is hold (0)
+
+**Notice**:
+
+When the difference value (the spread) is above the upper band, we infer that it will
+return to its mean value. 
+
+When the spread is below the lower band, even in this case, we speculate it will return to its mean
+value.
+
+Let's evaluate the buy and sell signal with normal means and standard deviations.
+```{r 12, include=TRUE}
+diff = norm_GOOGLE - norm_Apple # The difference in normalized prices is the spread.
+  me <- mean(diff)
+    std<- sd(diff)
+     n <- 1
+      ub<- me + n * std
+        lb<- me - n*std
+            signal <- ifelse(diff > ub,1,ifelse(diff < lb,-1,0))
+              # convert signal to time series
+                signal<-xts(signal, order.by=as.Date(row.names(signal)))
+                 # plot 
+                  plot(signal, type="l")
+```
+     
+     
+Let's do the same, but with moving average and moving standard deviation                  
+```{r 13, include=TRUE}                                  
+              
+              # let's use moving mean and standard deviation for 12 periods
+                  me_dynamic<- rollapply(diff,12,mean)
+                    std_dynamic<- rollapply(diff,12,sd)
+                      ub<- me_dynamic + n * std_dynamic
+                          lb<- me_dynamic - n*std_dynamic
+                            # change to data frame
+                              diff<-as.data.frame(diff)
+                                ub<-as.data.frame(ub)
+                                  lb<-as.data.frame(lb)
+                            signal <- ifelse(diff$Delt.1.log > ub$Delt.1.log,1,ifelse(diff$Delt.1.log < lb$Delt.1.log,-1,0))
+                                # convert signal to time series
+                                   signal<-xts(signal, order.by=as.Date(row.names(norm_GOOGLE)))
+                                      # plot 
+                                          plot(signal, type="l")
+
+```
+
+**Notice**: The moving average and standard deviation constantly changes signal generation. Thus, entry and exit is more frequent.
+
+
+Given that signals are generated using a spread, we need to be conscious that we are trading spread instead of individual stock. This means the following:
++ Buy signal = Means I am buying a spread. That is, a long position on Google and short position on Apple.
++ Sell signal = We have a short position on Google and a long position on Apple.
+
+
+
+Estimate the spread and trade return:
+```{r 14, include=TRUE}   
+spread_return<- log_ret_GOOGLE - log_ret_Apple
+  # cost of trading (expenses to carry out trading activities -i.e. transaction cost,
+    # brokerage cost, and slippage-)
+      cost<-0 # in this example, my cost of trading is $0
+        trade_return<- spread_return*lag(signal) - cost
+          # let's see our performance
+            summary(trade_return)
+```
+
+
+Other performance indicators
+```{r 15, include=TRUE}
+library(PerformanceAnalytics)
+cumm_ret<- Return.cumulative(trade_return)
+  annual_ret<- Return.annualized(trade_return)
+    charts.PerformanceSummary(trade_return)
+      maxdd<- maxDrawdown(trade_return)
+        sd<- StdDev(trade_return)
+          sda<- StdDev.annualized(trade_return)
+```
+
+
+Now, we calculate the VaR (Value-at-Risk) calculation for strategy return.
+For a return series, VaR is defined as the high quantile (e.g. ~a 95 quantile) of the negative value of the returns. This is the negative value of the c = 1-p quantile of the returns.
+```{r 16, include=TRUE}
+            VaR(trade_return, p = 0.95)
+```
+This is the negative value of the 5% quantile of returns. Moreover,  this can be interpreted as the worst-case scenario of losses.
+
+
+This is to calculate the Sharpe ratio of the strategy on a daily basis.
+
+More on the Sharpe Ratio: The ratio is the average return earned in excess of the risk-free rate per unit of volatility or total risk. Volatility is a measure of the price fluctuations of an asset or portfolio.
+```{r 17, include=TRUE}
+              SharpeRatio(as.ts(trade_return), Rf = 0, p = 0.95, FUN = "StdDev")
+```
+
+
+The Sharpe ratio on a daily basis is -0.3881. 
+
+This negative ratio means that the risk-free rate is greater than the portfolio's return, or the portfolio's return is expected to be negative.
+
+However, keep in mind that a positive ratio indicates a high degree of expected return for a relatively low amount of risk
+
+
+```{r 18, include=TRUE}
+                SharpeRatio.annualized(trade_return, Rf = 0)
+```
+
+
+The Sharpe ratio on an annualized basis is -3.635. 
+
+This negative ratio means that the risk-free rate is greater than the portfolio's return, or the portfolio's return is expected to be negative.
+
+In summary, there is still much to develop in this project in order to have a good performing strategy.
+
+
